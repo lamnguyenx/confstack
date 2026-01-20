@@ -11,8 +11,8 @@ import subprocess
 import inspect
 
 
-class ConfigStack(pdt.BaseModel):
-    app_name: tp.ClassVar[str] = "ConfigStack"
+class ConfStack(pdt.BaseModel):
+    app_name: tp.ClassVar[str] = "ConfStack"
     @staticmethod
     def set_nested_dict(data: dict, path: str, value: tp.Any) -> None:
         """Set a nested value in a dict using dotted path."""
@@ -80,7 +80,7 @@ class ConfigStack(pdt.BaseModel):
                 cls.set_nested_dict(config_data, key, value)
 
     @classmethod
-    def load_config(cls, cli_args_dict: dict[str, tp.Any]) -> "ConfigStack":
+    def load_config(cls, cli_args_dict: dict[str, tp.Any]) -> "ConfStack":
         config_data = {}
         cls.load_layer_02_config_file(config_data)
         cls.load_layer_03_lower_env(config_data)
