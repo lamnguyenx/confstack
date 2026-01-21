@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pydantic as pdt
 import typing as tp
+from typing_extensions import Self
 import os
 import logging
 import json
@@ -13,6 +14,7 @@ import inspect
 
 class ConfStack(pdt.BaseModel):
     app_name: tp.ClassVar[str] = "ConfStack"
+
     @staticmethod
     def set_nested_dict(data: dict, path: str, value: tp.Any) -> None:
         """Set a nested value in a dict using dotted path."""
@@ -48,9 +50,7 @@ class ConfStack(pdt.BaseModel):
         for env_key, path in cls._get_lower_mappings().items():
             if env_key in os.environ:
                 try:
-                    cls.set_nested_dict(
-                        config_data, path, os.environ[env_key]
-                    )
+                    cls.set_nested_dict(config_data, path, os.environ[env_key])
                 except (ValueError, TypeError):
                     logging.warning(
                         f"Could not set env var {env_key}='{os.environ[env_key]}' to config"
@@ -62,9 +62,7 @@ class ConfStack(pdt.BaseModel):
         for env_key, path in cls._get_upper_mappings().items():
             if env_key in os.environ:
                 try:
-                    cls.set_nested_dict(
-                        config_data, path, os.environ[env_key]
-                    )
+                    cls.set_nested_dict(config_data, path, os.environ[env_key])
                 except (ValueError, TypeError):
                     logging.warning(
                         f"Could not set env var {env_key}='{os.environ[env_key]}' to config"
@@ -80,7 +78,7 @@ class ConfStack(pdt.BaseModel):
                 cls.set_nested_dict(config_data, key, value)
 
     @classmethod
-    def load_config(cls, cli_args_dict: dict[str, tp.Any]) -> "ConfStack":
+    def load_config(cls, cli_args_dict: dict[str, tp.Any]) -> Self:
         config_data = {}
         cls.load_layer_02_config_file(config_data)
         cls.load_layer_03_lower_env(config_data)
@@ -97,9 +95,7 @@ class ConfStack(pdt.BaseModel):
             full_path = f"{prefix}.{field_name}" if prefix else field_name
             annotation = field_info.annotation
             if isinstance(annotation, type) and issubclass(annotation, pdt.BaseModel):
-                paths.extend(
-                    cls._collect_config_paths(annotation, full_path)
-                )
+                paths.extend(cls._collect_config_paths(annotation, full_path))
             else:
                 paths.append(full_path)
         return paths
@@ -135,15 +131,20 @@ class ConfStack(pdt.BaseModel):
         cls, default_dict: dict[str, tp.Any]
     ) -> pd.DataFrame:
         data = []
-        for section_name, section_dict in default_dict.items():
-            section_flat = cls._flatten_config(section_dict, section_name)
+        for section_name, section_value in default_dict.items():
+            if isinstance(section_value, dict):
+                section_flat = cls._flatten_config(section_value, section_name)
+            else:
+                section_flat = [(section_name, section_value)]
             for path, default in section_flat:
                 low = f"{cls.app_name.lower()}.{path}"
                 up = f"{cls.app_name.upper()}_{path.upper().replace('.', '_')}"
                 def_str = (
                     "null"
                     if default is None
-                    else f'"{default}"' if isinstance(default, str) else str(default)
+                    else f'"{default}"'
+                    if isinstance(default, str)
+                    else str(default)
                 )
                 data.append(
                     {
@@ -157,15 +158,20 @@ class ConfStack(pdt.BaseModel):
         return df
 
     @classmethod
-    def generate_markdown(
-        cls, output_path: tp.Optional[str] = None
-    ) -> None:
+    def generate_markdown(cls, output_path: tp.Optional[str] = None) -> None:
         if output_path is None:
             module_file = inspect.getfile(cls)
-            output_path = os.path.splitext(module_file)[0] + '.md'
+            output_path = os.path.splitext(module_file)[0] + ".md"
         default_dict = cls.model_validate({}).model_dump()
         df = cls.generate_config_mapping_pandas(default_dict)
-        df = df[["Config / CLI Args", "Default Value", "Lowercase Dotted Envs.", "Uppercase Underscored Envs."]]
+        df = df[
+            [
+                "Config / CLI Args",
+                "Default Value",
+                "Lowercase Dotted Envs.",
+                "Uppercase Underscored Envs.",
+            ]
+        ]
         rows = [
             h.tr[
                 h.td[str(row["Config / CLI Args"])],
