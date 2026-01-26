@@ -10,6 +10,7 @@ import pandas as pd
 import htpy as h
 import subprocess
 import inspect
+import argparse
 
 
 class ConfStack(pdt.BaseModel):
@@ -208,3 +209,22 @@ class ConfStack(pdt.BaseModel):
         with open(output_path, "w") as f:
             f.write(md_content)
         print(f"Config mapping Markdown generated at {output_path}")
+
+    @classmethod
+    def to_argparser(cls) -> argparse.ArgumentParser:
+        """Convert the ConfStack model to an argparse.ArgumentParser."""
+        parser = argparse.ArgumentParser(
+            prog="__main__.py", description=f"{cls.app_name} Configuration"
+        )
+        paths = cls._collect_config_paths(cls)
+        for path in paths:
+            option_name = path.replace(".", "_")
+            help_text = f"Set {path}"
+            parser.add_argument(
+                f"--{option_name}",
+                dest=option_name,
+                type=str,
+                default=None,
+                help=help_text,
+            )
+        return parser

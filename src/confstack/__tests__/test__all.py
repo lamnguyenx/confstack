@@ -5,6 +5,8 @@ import tempfile
 from unittest.mock import patch
 from confstack import ConfStack
 from confstack.examples import ConfStackExample01
+import argparse
+import pydantic as pdt
 
 
 class TestConfigLoadingCli(unittest.TestCase):
@@ -359,7 +361,7 @@ class TestConfigGeneration(unittest.TestCase):
         df = ConfStackExample01.generate_config_mapping_pandas(default_dict)
         self.assertEqual(len(df), 8)
         # Check specific rows
-        row = df[df["Config / CLI Args"] == "key_00"]
-        self.assertEqual(row["Lowercase Dotted Envs."].iloc[0], "app_name.key_00")
-        self.assertEqual(row["Uppercase Underscored Envs."].iloc[0], "APP_NAME_KEY_00")
-        self.assertEqual(row["Default Value"].iloc[0], '"layer_01_value_00"')
+        row = df.loc[df["Config / CLI Args"] == "key_00"].iloc[0]
+        self.assertEqual(row["Lowercase Dotted Envs."], "app_name.key_00")
+        self.assertEqual(row["Uppercase Underscored Envs."], "APP_NAME_KEY_00")
+        self.assertEqual(row["Default Value"], '"layer_01_value_00"')
