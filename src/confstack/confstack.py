@@ -76,7 +76,8 @@ class ConfStack(pdt.BaseModel):
         """Load configuration from CLI arguments."""
         for key, value in cli_args_dict.items():
             if value is not None:
-                cls.set_nested_dict(config_data, key, value)
+                path = key.replace("__", ".")
+                cls.set_nested_dict(config_data, path, value)
 
     @classmethod
     def load_config(cls, cli_args_dict: dict[str, tp.Any]) -> Self:
@@ -138,18 +139,17 @@ class ConfStack(pdt.BaseModel):
             else:
                 section_flat = [(section_name, section_value)]
             for path, default in section_flat:
+                cli_path = path.replace(".", "__")
                 low = f"{cls.app_name.lower()}.{path}"
                 up = f"{cls.app_name.upper()}_{path.upper().replace('.', '_')}"
                 def_str = (
                     "null"
                     if default is None
-                    else f'"{default}"'
-                    if isinstance(default, str)
-                    else str(default)
+                    else f'"{default}"' if isinstance(default, str) else str(default)
                 )
                 data.append(
                     {
-                        "Config / CLI Args": path,
+                        "Config / CLI Args": cli_path,
                         "Lowercase Dotted Envs.": low,
                         "Uppercase Underscored Envs.": up,
                         "Default Value": def_str,
@@ -218,7 +218,7 @@ class ConfStack(pdt.BaseModel):
         )
         paths = cls._collect_config_paths(cls)
         for path in paths:
-            option_name = path.replace(".", "_")
+            option_name = path.replace(".", "__")
             help_text = f"Set {path}"
             parser.add_argument(
                 f"--{option_name}",
@@ -228,3 +228,12 @@ class ConfStack(pdt.BaseModel):
                 help=help_text,
             )
         return parser
+
+    @classmethod
+    def parse_args(cls) -> Self:
+        """Parse CLI args and load config in one step."""
+        args = cls.to_argparser().parse_args()
+        return cls.load_config(vars(args))
+
+    def print_json(self, indent: int = 2) -> None:
+        print(json.dumps(self.model_dump(), indent=indent))

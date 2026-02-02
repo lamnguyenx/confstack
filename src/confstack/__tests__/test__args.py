@@ -4,7 +4,7 @@ import json
 import tempfile
 from unittest.mock import patch
 from confstack import ConfStack
-from confstack.examples import ConfStackExample01
+from confstack.example01 import ConfStackExample01
 import argparse
 import pydantic as pdt
 import typing as tp
@@ -24,17 +24,19 @@ class TestToArgparser(unittest.TestCase):
         self.assertFalse(key00_action.required)
         self.assertEqual(key00_action.help, "Set key_00")
 
-        nested_action = next(a for a in parser._actions if a.dest == "key_02_subkey_01")
+        nested_action = next(
+            a for a in parser._actions if a.dest == "key_02__subkey_01"
+        )
         self.assertEqual(nested_action.default, None)
-        self.assertEqual(nested_action.option_strings, ["--key_02_subkey_01"])
+        self.assertEqual(nested_action.option_strings, ["--key_02__subkey_01"])
 
     def test_parser_parse_args(self):
         parser = ConfStackExample01.to_argparser()
         args = parser.parse_args(
-            ["--key_00", "cli_test", "--key_02_subkey_01", "nested_test"]
+            ["--key_00", "cli_test", "--key_02__subkey_01", "nested_test"]
         )
         self.assertEqual(vars(args)["key_00"], "cli_test")
-        self.assertEqual(vars(args)["key_02_subkey_01"], "nested_test")
+        self.assertEqual(vars(args)["key_02__subkey_01"], "nested_test")
 
     def test_inline_model(self):
         class Nested(pdt.BaseModel):
@@ -57,10 +59,10 @@ class TestToArgparser(unittest.TestCase):
         baz_action = next(a for a in parser._actions if a.dest == "baz")
         self.assertEqual(baz_action.option_strings, ["--baz"])
 
-        qux_action = next(a for a in parser._actions if a.dest == "nested_qux")
+        qux_action = next(a for a in parser._actions if a.dest == "nested__qux")
         self.assertEqual(qux_action.default, None)
         self.assertEqual(qux_action.help, "Set nested.qux")
-        self.assertEqual(qux_action.option_strings, ["--nested_qux"])
+        self.assertEqual(qux_action.option_strings, ["--nested__qux"])
 
     def test_parse_bool_flags(self):
         class BoolModels(ConfStack):
@@ -127,15 +129,17 @@ class TestArgparserDeepNesting(unittest.TestCase):
 
         parser = DeepConfig.to_argparser()
         deep_action = next(
-            a for a in parser._actions if a.dest == "level1_level2_level3_deep_value"
+            a for a in parser._actions if a.dest == "level1__level2__level3__deep_value"
         )
-        self.assertEqual(deep_action.option_strings, ["--level1_level2_level3_deep_value"])
+        self.assertEqual(
+            deep_action.option_strings, ["--level1__level2__level3__deep_value"]
+        )
         self.assertEqual(deep_action.help, "Set level1.level2.level3.deep_value")
 
         mid_action = next(
-            a for a in parser._actions if a.dest == "level1_level2_mid_value"
+            a for a in parser._actions if a.dest == "level1__level2__mid_value"
         )
-        self.assertEqual(mid_action.option_strings, ["--level1_level2_mid_value"])
+        self.assertEqual(mid_action.option_strings, ["--level1__level2__mid_value"])
 
     def test_parse_deeply_nested_args(self):
         class Inner(pdt.BaseModel):
@@ -148,8 +152,39 @@ class TestArgparserDeepNesting(unittest.TestCase):
             outer: Outer = pdt.Field(default_factory=Outer)
 
         parser = DeepConfig.to_argparser()
-        args = parser.parse_args(["--outer_inner_val", "overridden"])
-        self.assertEqual(vars(args)["outer_inner_val"], "overridden")
+        args = parser.parse_args(["--outer__inner__val", "overridden"])
+        self.assertEqual(vars(args)["outer__inner__val"], "overridden")
+
+
+class TestArgparserMultipleNestedModels(unittest.TestCase):
+    def test_sibling_nested_models(self):
+        class Database(pdt.BaseModel):
+            host: str = "localhost"
+            port: int = 5432
+
+        class Cache(pdt.BaseModel):
+            host: str = "redis"
+            ttl: int = 300
+
+        class AppConfig(ConfStack):
+            database: Database = pdt.Field(default_factory=Database)
+            cache: Cache = pdt.Field(default_factory=Cache)
+            debug: bool = False
+
+        parser = AppConfig.to_argparser()
+        dests = {a.dest for a in parser._actions if a.dest != "help"}
+        expected = {
+            "database__host",
+            "database__port",
+            "cache__host",
+            "cache__ttl",
+            "debug",
+        }
+        self.assertEqual(dests, expected)
+
+        args = parser.parse_args(["--database__host", "prod-db", "--cache__ttl", "600"])
+        self.assertEqual(vars(args)["database__host"], "prod-db")
+        self.assertEqual(vars(args)["cache__ttl"], "600")
 
 
 class TestArgparserMultipleFields(unittest.TestCase):
@@ -246,31 +281,6 @@ class TestArgparserSpecialCharacters(unittest.TestCase):
         self.assertEqual(vars(args)["value"], "")
 
 
-class TestArgparserMultipleNestedModels(unittest.TestCase):
-    def test_sibling_nested_models(self):
-        class Database(pdt.BaseModel):
-            host: str = "localhost"
-            port: int = 5432
-
-        class Cache(pdt.BaseModel):
-            host: str = "redis"
-            ttl: int = 300
-
-        class AppConfig(ConfStack):
-            database: Database = pdt.Field(default_factory=Database)
-            cache: Cache = pdt.Field(default_factory=Cache)
-            debug: bool = False
-
-        parser = AppConfig.to_argparser()
-        dests = {a.dest for a in parser._actions if a.dest != "help"}
-        expected = {"database_host", "database_port", "cache_host", "cache_ttl", "debug"}
-        self.assertEqual(dests, expected)
-
-        args = parser.parse_args(["--database_host", "prod-db", "--cache_ttl", "600"])
-        self.assertEqual(vars(args)["database_host"], "prod-db")
-        self.assertEqual(vars(args)["cache_ttl"], "600")
-
-
 class TestArgparserCollectConfigPaths(unittest.TestCase):
     def test_collect_paths_flat(self):
         class FlatConfig(ConfStack):
@@ -323,7 +333,7 @@ class TestArgparserHelpText(unittest.TestCase):
             inner: Inner = pdt.Field(default_factory=Inner)
 
         parser = NestedHelp.to_argparser()
-        action = next(a for a in parser._actions if a.dest == "inner_nested_setting")
+        action = next(a for a in parser._actions if a.dest == "inner__nested_setting")
         self.assertEqual(action.help, "Set inner.nested_setting")
 
 
@@ -335,7 +345,7 @@ class TestArgparserIntegrationWithLoadConfig(unittest.TestCase):
         parser = IntegrationConfig.to_argparser()
         args = parser.parse_args(["--setting", "cli_value"])
         args_dict = {
-            k.replace("_", "."): v for k, v in vars(args).items() if v is not None
+            k.replace("__", "."): v for k, v in vars(args).items() if v is not None
         }
         config = IntegrationConfig.load_config(args_dict)
         self.assertEqual(config.setting, "cli_value")
@@ -348,11 +358,11 @@ class TestArgparserIntegrationWithLoadConfig(unittest.TestCase):
             nested: Nested = pdt.Field(default_factory=Nested)
 
         parser = NestedIntegration.to_argparser()
-        args = parser.parse_args(["--nested_value", "cli_nested"])
+        args = parser.parse_args(["--nested__value", "cli_nested"])
         args_dict = {}
         for k, v in vars(args).items():
             if v is not None:
-                path = k.replace("_", ".", 1)
+                path = k.replace("__", ".")
                 args_dict[path] = v
         config = NestedIntegration.load_config(args_dict)
         self.assertEqual(config.nested.value, "cli_nested")

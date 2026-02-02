@@ -2,11 +2,39 @@ import unittest
 import os
 import json
 import tempfile
-from unittest.mock import patch
+import typing as tp
+from unittest.mock import patch, MagicMock
+from io import StringIO
 from confstack import ConfStack
-from confstack.examples import ConfStackExample01
-import argparse
+from confstack.example01 import ConfStackExample01
 import pydantic as pdt
+
+
+class MockConfigFileHelper:
+    """Helper class to create mock config file loaders."""
+
+    @staticmethod
+    def create_mock_loader(config_file: str, model_cls: tp.Type[pdt.BaseModel]):
+        """Create a mock loader function for config files."""
+
+        def mock_load(config_data_inner: dict) -> None:
+            try:
+                with open(config_file, "r") as f:
+                    file_config = json.load(f)
+                sections = list(model_cls.model_fields.keys())
+                for section_name in sections:
+                    if section_name in file_config:
+                        for key, value in file_config[section_name].items():
+                            if value is not None:
+                                ConfStack.set_nested_dict(
+                                    config_data_inner,
+                                    f"{section_name}.{key}",
+                                    value,
+                                )
+            except Exception:
+                pass  # ignore for test
+
+        return mock_load
 
 
 class TestConfigLoadingCli(unittest.TestCase):
@@ -139,25 +167,9 @@ class TestConfigLoadingPrecedence(unittest.TestCase):
             with patch.object(
                 ConfStackExample01, "load_layer_02_config_file"
             ) as mock_method:
-
-                def mock_load(config_data_inner):
-                    try:
-                        with open(config_file, "r") as f:
-                            file_config = json.load(f)
-                        sections = list(ConfStackExample01.model_fields.keys())
-                        for section_name in sections:
-                            if section_name in file_config:
-                                for key, value in file_config[section_name].items():
-                                    if value is not None:
-                                        ConfStack.set_nested_dict(
-                                            config_data_inner,
-                                            f"{section_name}.{key}",
-                                            value,
-                                        )
-                    except Exception:
-                        pass  # ignore for test
-
-                mock_method.side_effect = mock_load
+                mock_method.side_effect = MockConfigFileHelper.create_mock_loader(
+                    config_file, ConfStackExample01
+                )
                 cli_args = {"key_00": "cli_value"}
                 config = ConfStackExample01.load_config(cli_args)
                 # CLI should override env and file
@@ -196,25 +208,9 @@ class TestConfigLoadingFile(unittest.TestCase):
             with patch.object(
                 ConfStackExample01, "load_layer_02_config_file"
             ) as mock_method:
-
-                def mock_load(config_data_inner):
-                    try:
-                        with open(config_file, "r") as f:
-                            file_config = json.load(f)
-                        sections = list(ConfStackExample01.model_fields.keys())
-                        for section_name in sections:
-                            if section_name in file_config:
-                                for key, value in file_config[section_name].items():
-                                    if value is not None:
-                                        ConfStack.set_nested_dict(
-                                            config_data_inner,
-                                            f"{section_name}.{key}",
-                                            value,
-                                        )
-                    except Exception:
-                        pass  # ignore for test
-
-                mock_method.side_effect = mock_load
+                mock_method.side_effect = MockConfigFileHelper.create_mock_loader(
+                    config_file, ConfStackExample01
+                )
                 config = ConfStackExample01.load_config({})
                 self.assertEqual(config.key_02.subkey_01, "file_value")
                 self.assertEqual(config.key_00, "layer_01_value_00")  # unchanged
@@ -244,25 +240,9 @@ class TestConfigEdgeCases(unittest.TestCase):
             with patch.object(
                 ConfStackExample01, "load_layer_02_config_file"
             ) as mock_method:
-
-                def mock_load(config_data_inner):
-                    try:
-                        with open(config_file, "r") as f:
-                            file_config = json.load(f)
-                        sections = list(ConfStackExample01.model_fields.keys())
-                        for section_name in sections:
-                            if section_name in file_config:
-                                for key, value in file_config[section_name].items():
-                                    if value is not None:
-                                        ConfStack.set_nested_dict(
-                                            config_data_inner,
-                                            f"{section_name}.{key}",
-                                            value,
-                                        )
-                    except Exception:
-                        pass  # ignore for test, simulates failure
-
-                mock_method.side_effect = mock_load
+                mock_method.side_effect = MockConfigFileHelper.create_mock_loader(
+                    config_file, ConfStackExample01
+                )
                 config = ConfStackExample01.load_config({})
                 # Should fall back to defaults since file load failed
                 self.assertEqual(config.key_00, "layer_01_value_00")
@@ -297,25 +277,9 @@ class TestConfigEdgeCases(unittest.TestCase):
             with patch.object(
                 ConfStackExample01, "load_layer_02_config_file"
             ) as mock_method:
-
-                def mock_load(config_data_inner):
-                    try:
-                        with open(config_file, "r") as f:
-                            file_config = json.load(f)
-                        sections = list(ConfStackExample01.model_fields.keys())
-                        for section_name in sections:
-                            if section_name in file_config:
-                                for key, value in file_config[section_name].items():
-                                    if value is not None:
-                                        ConfStack.set_nested_dict(
-                                            config_data_inner,
-                                            f"{section_name}.{key}",
-                                            value,
-                                        )
-                    except Exception:
-                        pass
-
-                mock_method.side_effect = mock_load
+                mock_method.side_effect = MockConfigFileHelper.create_mock_loader(
+                    config_file, ConfStackExample01
+                )
                 with patch.dict(
                     "os.environ",
                     {
@@ -343,9 +307,6 @@ class TestConfigEdgeCases(unittest.TestCase):
 class TestConfigGeneration(unittest.TestCase):
     def test_generate_markdown(self):
         """Test markdown generation for config mapping."""
-        import tempfile
-        import os
-
         with tempfile.TemporaryDirectory() as temp_dir:
             md_file = os.path.join(temp_dir, "test.md")
             ConfStackExample01.generate_markdown(md_file)
@@ -365,3 +326,70 @@ class TestConfigGeneration(unittest.TestCase):
         self.assertEqual(row["Lowercase Dotted Envs."], "app_name.key_00")
         self.assertEqual(row["Uppercase Underscored Envs."], "APP_NAME_KEY_00")
         self.assertEqual(row["Default Value"], '"layer_01_value_00"')
+
+
+class TestParseArgsAndPrintJson(unittest.TestCase):
+    """Tests for parse_args() and print_json() methods."""
+
+    @patch.object(ConfStackExample01, "to_argparser")
+    @patch.object(ConfStackExample01, "load_config")
+    def test_parse_args(self, mock_load_config, mock_to_argparser):
+        """Test parse_args method parses CLI and loads config."""
+        # Setup mock parser with a simple namespace for args
+        from argparse import Namespace
+
+        mock_parser = MagicMock()
+        mock_args = Namespace(key_00="parsed_value", key_01=None)
+        mock_parser.parse_args.return_value = mock_args
+        mock_to_argparser.return_value = mock_parser
+
+        # Setup mock load_config return value
+        mock_config = MagicMock()
+        mock_load_config.return_value = mock_config
+
+        # Call parse_args
+        result = ConfStackExample01.parse_args()
+
+        # Verify parser was created and parse_args was called
+        mock_to_argparser.assert_called_once()
+        mock_parser.parse_args.assert_called_once()
+
+        # Verify load_config was called with parsed args (includes None values)
+        mock_load_config.assert_called_once_with(
+            {"key_00": "parsed_value", "key_01": None}
+        )
+
+        # Verify the result is the config returned by load_config
+        self.assertEqual(result, mock_config)
+
+    @patch("sys.stdout", new_callable=StringIO)
+    def test_print_json(self, mock_stdout):
+        """Test print_json method outputs valid JSON."""
+        config = ConfStackExample01.load_config({})
+        config.print_json(indent=2)
+
+        output = mock_stdout.getvalue()
+        # Verify it's valid JSON
+        parsed = json.loads(output)
+
+        # Verify key values are present
+        self.assertEqual(parsed["key_00"], "layer_01_value_00")
+        self.assertEqual(parsed["key_01"], "layer_01_value_01")
+        self.assertEqual(parsed["key_02"]["subkey_01"], "layer_01_value_02_01")
+
+    @patch("sys.stdout", new_callable=StringIO)
+    def test_print_json_custom_indent(self, mock_stdout):
+        """Test print_json with custom indentation."""
+        config = ConfStackExample01.load_config({})
+        config.print_json(indent=4)
+
+        output = mock_stdout.getvalue()
+        # Verify it's valid JSON
+        parsed = json.loads(output)
+        self.assertEqual(parsed["key_00"], "layer_01_value_00")
+        # Check that indentation is applied (4 spaces)
+        self.assertIn("    ", output)
+
+
+if __name__ == "__main__":
+    unittest.main()

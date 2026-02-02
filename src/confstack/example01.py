@@ -1,9 +1,10 @@
 import pydantic as pdt
 import typing as tp
-from .confstack import ConfStack
+import confstack
 
 
-class ConfStackExample01(ConfStack):
+class ConfStackExample01(confstack.ConfStack):
+
     app_name: tp.ClassVar[str] = "app_name"
     key_00: str = "layer_01_value_00"
     key_01: str = "layer_01_value_01"
@@ -28,3 +29,8 @@ class ConfStackExample01(ConfStack):
         subkey_01: Subkey01 = pdt.Field(default_factory=Subkey01)
 
     key_03: Key03 = pdt.Field(default_factory=Key03)
+
+
+if __name__ == "__main__":
+    config = ConfStackExample01.parse_args()
+    config.print_json()
