@@ -331,7 +331,7 @@ class TestConfigGeneration(unittest.TestCase):
 class TestParseArgsAndPrintJson(unittest.TestCase):
     """Tests for parse_args() and print_json() methods."""
 
-    @patch.object(ConfStackExample01, "to_argparser")
+    @patch.object(ConfStackExample01, "get_argparser")
     @patch.object(ConfStackExample01, "load_config")
     def test_parse_args(self, mock_load_config, mock_to_argparser):
         """Test parse_args method parses CLI and loads config."""

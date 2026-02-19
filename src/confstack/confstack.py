@@ -14,6 +14,7 @@ import argparse
 
 
 class ConfStack(pdt.BaseModel):
+    model_config = pdt.ConfigDict(extra="allow")
     app_name: tp.ClassVar[str] = "ConfStack"
 
     @staticmethod
@@ -34,14 +35,20 @@ class ConfStack(pdt.BaseModel):
             try:
                 with open(config_file, "r") as f:
                     file_config = json.load(f)
-                sections = list(cls.model_fields.keys())
-                for section_name in sections:
-                    if section_name in file_config:
-                        for key, value in file_config[section_name].items():
-                            if value is not None:
-                                cls.set_nested_dict(
-                                    config_data, f"{section_name}.{key}", value
-                                )
+                # Support both nested sections and flat dotted keys
+                if isinstance(file_config, dict):
+                    for key, value in file_config.items():
+                        if value is not None:
+                            if isinstance(value, dict):
+                                # Nested format: {"key_02": {"subkey_01": "value"}}
+                                for subkey, subvalue in value.items():
+                                    if subvalue is not None:
+                                        cls.set_nested_dict(
+                                            config_data, f"{key}.{subkey}", subvalue
+                                        )
+                            else:
+                                # Flat format: {"key_00": "value"} or {"key_02.subkey_01": "value"}
+                                cls.set_nested_dict(config_data, key, value)
             except Exception as e:
                 logging.warning(f"Failed to load config file {config_file}: {e}")
 
@@ -71,20 +78,36 @@ class ConfStack(pdt.BaseModel):
 
     @classmethod
     def load_layer_05_cli_args(
-        cls, config_data: dict, cli_args_dict: dict[str, tp.Any]
+        cls, config_data: dict, cli_args: tp.Union[dict, argparse.Namespace]
     ) -> None:
         """Load configuration from CLI arguments."""
+        if isinstance(cli_args, argparse.Namespace):
+            cli_args_dict = vars(cli_args)
+        else:
+            cli_args_dict = cli_args
+
+        # Get all known config paths from the model
+        known_paths = set(cls._collect_config_paths(cls))
+
         for key, value in cli_args_dict.items():
+            path = key.replace("__", ".")
             if value is not None:
-                path = key.replace("__", ".")
+                # Always set non-None values
+                cls.set_nested_dict(config_data, path, value)
+            elif path not in known_paths:
+                # For extra fields (not in model), include even if None
                 cls.set_nested_dict(config_data, path, value)
 
     @classmethod
-    def load_config(cls, cli_args_dict: dict[str, tp.Any]) -> Self:
+    def load_config(cls, cli_args: tp.Union[dict, argparse.Namespace]) -> Self:
         config_data = {}
         cls.load_layer_02_config_file(config_data)
         cls.load_layer_03_lower_env(config_data)
         cls.load_layer_04_upper_env(config_data)
+        if isinstance(cli_args, argparse.Namespace):
+            cli_args_dict = vars(cli_args)
+        else:
+            cli_args_dict = cli_args
         cls.load_layer_05_cli_args(config_data, cli_args_dict)
         return cls(**config_data)
 
@@ -145,7 +168,9 @@ class ConfStack(pdt.BaseModel):
                 def_str = (
                     "null"
                     if default is None
-                    else f'"{default}"' if isinstance(default, str) else str(default)
+                    else f'"{default}"'
+                    if isinstance(default, str)
+                    else str(default)
                 )
                 data.append(
                     {
@@ -211,7 +236,7 @@ class ConfStack(pdt.BaseModel):
         print(f"Config mapping Markdown generated at {output_path}")
 
     @classmethod
-    def to_argparser(cls) -> argparse.ArgumentParser:
+    def get_argparser(cls) -> argparse.ArgumentParser:
         """Convert the ConfStack model to an argparse.ArgumentParser."""
         parser = argparse.ArgumentParser(
             prog="__main__.py", description=f"{cls.app_name} Configuration"
@@ -232,7 +257,7 @@ class ConfStack(pdt.BaseModel):
     @classmethod
     def parse_args(cls) -> Self:
         """Parse CLI args and load config in one step."""
-        args = cls.to_argparser().parse_args()
+        args = cls.get_argparser().parse_args()
         return cls.load_config(vars(args))
 
     def print_json(self, indent: int = 2) -> None:

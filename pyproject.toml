@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "confstack"
-version = "0.1.0"
+version = "0.1.0.1"
 description = "Multi-Layer Configuration Architecture with priority order: in-code defaults, config file, env vars, and CLI."
 authors = [{ name = "Lam Nguyenx", email = "lamfm95@gmail.com" }]
 readme = "README.md"

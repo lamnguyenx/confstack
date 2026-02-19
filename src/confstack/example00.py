@@ -4,7 +4,6 @@ import confstack
 
 
 class ConfStackExample00(confstack.ConfStack):
-
     app_name: tp.ClassVar[str] = "app_name"
     key_00: str = "layer_01_value_00"
     key_01: str = "layer_01_value_01"
@@ -17,5 +16,9 @@ class ConfStackExample00(confstack.ConfStack):
 
 
 if __name__ == "__main__":
-    config = ConfStackExample00.parse_args()
+    parser = ConfStackExample00.get_argparser()
+    parser.add_argument("--extra_flag_01", action="store_true")
+    parser.add_argument("--extra_args_01", type=str, default="default_value_01")
+    parser.add_argument("extra_pos_args_01", nargs="?")
+    config = ConfStackExample00.load_config(cli_args=parser.parse_args())
     config.print_json()

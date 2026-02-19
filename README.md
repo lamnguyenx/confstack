@@ -22,7 +22,6 @@ import confstack
 
 
 class ConfStackExample00(confstack.ConfStack):
-
     app_name: tp.ClassVar[str] = "app_name"
     key_00: str = "layer_01_value_00"
     key_01: str = "layer_01_value_01"
@@ -35,7 +34,11 @@ class ConfStackExample00(confstack.ConfStack):
 
 
 if __name__ == "__main__":
-    config = ConfStackExample00.parse_args()
+    parser = ConfStackExample00.get_argparser()
+    parser.add_argument("--extra_flag_01", action="store_true")
+    parser.add_argument("--extra_args_01", type=str, default="default_value_01")
+    parser.add_argument("extra_pos_args_01", nargs="?")
+    config = ConfStackExample00.load_config(cli_args=parser.parse_args())
     config.print_json()
 ```
 
@@ -49,8 +52,15 @@ APP_NAME_KEY_00="L4" \
   python -m confstack.example00 \
     --key_00 "L5"
 # {
-#   "key_00": "L5",         # cli arg wins (highest priority)
-#   ...
+#   "key_00": "L5", # ⭐ cli arg wins (highest priority)
+#   "key_01": "layer_01_value_01",
+#   "key_02": {
+#     "subkey_01": "layer_01_value_02_01",
+#     "subkey_02": "layer_01_value_02_02"
+#   },
+#   "extra_flag_01": false,
+#   "extra_args_01": "default_value_01",
+#   "extra_pos_args_01": null
 # }
 ```
 
@@ -63,14 +73,17 @@ cat ~/.config/app_name/config.json
 env "app_name.key_02.subkey_01=L3" \
 APP_NAME_KEY_00="L4" \
   python -m confstack.example00 \
-    --key_01 "L5"
+    --key_01 "L5" \
+    --extra_args_01 "custom_value"
 # {
-#   "key_00": "L4",         # uppercase underscored env
-#   "key_01": "L5",         # cli arg
+#   "key_00": "L4", # ⭐ uppercase underscored env
+#   "key_01": "L5", # ⭐ cli arg
 #   "key_02": {
-#     "subkey_01": "L3",    # lowercase dotted env
-#     "subkey_02": "L2"     # default config file
-#   }
+#     "subkey_01": "L3", # ⭐ lowercase dotted env
+#     "subkey_02": "L2" # ⭐ default config file
+#   },
+#   "extra_args_01": "custom_value",
+#   "extra_pos_args_01": null
 # }
 ```
 

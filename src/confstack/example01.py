@@ -4,7 +4,6 @@ import confstack
 
 
 class ConfStackExample01(confstack.ConfStack):
-
     app_name: tp.ClassVar[str] = "app_name"
     key_00: str = "layer_01_value_00"
     key_01: str = "layer_01_value_01"
@@ -32,5 +31,50 @@ class ConfStackExample01(confstack.ConfStack):
 
 
 if __name__ == "__main__":
-    config = ConfStackExample01.parse_args()
+    parser = ConfStackExample01.get_argparser()
+
+    # Add generic extra optional arguments not in the ConfStack model
+    parser.add_argument(
+        "--extra_flag_01",
+        action="store_true",
+        help="Extra flag argument 01 (boolean)",
+    )
+    parser.add_argument(
+        "--extra_args_01",
+        type=str,
+        default="default_value_01",
+        help="Extra argument 01 (default: default_value_01)",
+    )
+    parser.add_argument(
+        "--extra_args_02",
+        type=str,
+        default="default_value_02",
+        help="Extra argument 02 (default: default_value_02)",
+    )
+    parser.add_argument(
+        "--extra_args_03",
+        type=str,
+        default="default_value_03",
+        help="Extra argument 03 (default: default_value_03)",
+    )
+
+    # Add generic extra positional arguments
+    parser.add_argument(
+        "extra_pos_args_01",
+        nargs="?",
+        default="default_pos_01",
+        help="Extra positional argument 01 (default: default_pos_01)",
+    )
+    parser.add_argument(
+        "extra_pos_args_02",
+        nargs="?",
+        default="default_pos_02",
+        help="Extra positional argument 02 (default: default_pos_02)",
+    )
+
+    args = parser.parse_args()
+
+    # Load config with all args - extra keys are allowed by the model
+    config = ConfStackExample01.load_config(args)
     config.print_json()
+

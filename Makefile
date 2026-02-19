@@ -1,10 +1,7 @@
-.PHONY: build publish example
+.PHONY: build publish
 
 build b: ## Build the package
 	uv build
 
 publish p: ## Publish to PyPI
-	uv publish
-
-example e: ## Run the example
-	./example/run.sh
+	twine check dist/* && twine upload dist/*

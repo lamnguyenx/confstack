@@ -12,12 +12,12 @@ import typing as tp
 
 class TestToArgparser(unittest.TestCase):
     def test_basic_parser(self):
-        parser = ConfStackExample01.to_argparser()
+        parser = ConfStackExample01.get_argparser()
         self.assertIsInstance(parser, argparse.ArgumentParser)
         self.assertEqual(parser.prog, "__main__.py")
 
     def test_parser_options_example(self):
-        parser = ConfStackExample01.to_argparser()
+        parser = ConfStackExample01.get_argparser()
         key00_action = next(a for a in parser._actions if a.dest == "key_00")
         self.assertEqual(key00_action.default, None)
         self.assertEqual(key00_action.option_strings, ["--key_00"])
@@ -31,7 +31,7 @@ class TestToArgparser(unittest.TestCase):
         self.assertEqual(nested_action.option_strings, ["--key_02__subkey_01"])
 
     def test_parser_parse_args(self):
-        parser = ConfStackExample01.to_argparser()
+        parser = ConfStackExample01.get_argparser()
         args = parser.parse_args(
             ["--key_00", "cli_test", "--key_02__subkey_01", "nested_test"]
         )
@@ -48,7 +48,7 @@ class TestToArgparser(unittest.TestCase):
             baz: bool = True
             nested: Nested = pdt.Field(default_factory=lambda: Nested())
 
-        parser = Simple.to_argparser()
+        parser = Simple.get_argparser()
         foo_action = next(a for a in parser._actions if a.dest == "foo")
         self.assertEqual(foo_action.default, None)
         self.assertEqual(foo_action.option_strings, ["--foo"])
@@ -69,7 +69,7 @@ class TestToArgparser(unittest.TestCase):
             false_flag: bool = False
             true_flag: bool = True
 
-        parser = BoolModels.to_argparser()
+        parser = BoolModels.get_argparser()
         args_false = parser.parse_args(["--false_flag", "true"])
         self.assertEqual(vars(args_false)["false_flag"], "true")
         args_true = parser.parse_args(["--true_flag", "false"])
@@ -79,7 +79,7 @@ class TestToArgparser(unittest.TestCase):
         class ReqModel(ConfStack):
             req: str  # required
 
-        parser = ReqModel.to_argparser()
+        parser = ReqModel.get_argparser()
         req_action = next(a for a in parser._actions if a.dest == "req")
         self.assertFalse(req_action.required)
 
@@ -89,7 +89,7 @@ class TestToArgparser(unittest.TestCase):
         self.assertEqual(vars(args)["req"], "test")
 
     def test_empty_model(self):
-        parser = ConfStack.to_argparser()
+        parser = ConfStack.get_argparser()
         non_base_actions = [
             a
             for a in parser._actions
@@ -100,7 +100,7 @@ class TestToArgparser(unittest.TestCase):
 
 class TestArgparserDescription(unittest.TestCase):
     def test_default_app_name_description(self):
-        parser = ConfStack.to_argparser()
+        parser = ConfStack.get_argparser()
         self.assertEqual(parser.description, "ConfStack Configuration")
 
     def test_custom_app_name_description(self):
@@ -108,7 +108,7 @@ class TestArgparserDescription(unittest.TestCase):
             app_name: tp.ClassVar[str] = "MyCustomApp"
             setting: str = "default"
 
-        parser = CustomApp.to_argparser()
+        parser = CustomApp.get_argparser()
         self.assertEqual(parser.description, "MyCustomApp Configuration")
 
 
@@ -127,7 +127,7 @@ class TestArgparserDeepNesting(unittest.TestCase):
         class DeepConfig(ConfStack):
             level1: Level1 = pdt.Field(default_factory=Level1)
 
-        parser = DeepConfig.to_argparser()
+        parser = DeepConfig.get_argparser()
         deep_action = next(
             a for a in parser._actions if a.dest == "level1__level2__level3__deep_value"
         )
@@ -151,7 +151,7 @@ class TestArgparserDeepNesting(unittest.TestCase):
         class DeepConfig(ConfStack):
             outer: Outer = pdt.Field(default_factory=Outer)
 
-        parser = DeepConfig.to_argparser()
+        parser = DeepConfig.get_argparser()
         args = parser.parse_args(["--outer__inner__val", "overridden"])
         self.assertEqual(vars(args)["outer__inner__val"], "overridden")
 
@@ -171,7 +171,7 @@ class TestArgparserMultipleNestedModels(unittest.TestCase):
             cache: Cache = pdt.Field(default_factory=Cache)
             debug: bool = False
 
-        parser = AppConfig.to_argparser()
+        parser = AppConfig.get_argparser()
         dests = {a.dest for a in parser._actions if a.dest != "help"}
         expected = {
             "database__host",
@@ -196,7 +196,7 @@ class TestArgparserMultipleFields(unittest.TestCase):
             field_d: int = 1
             field_e: float = 1.5
 
-        parser = ManyFields.to_argparser()
+        parser = ManyFields.get_argparser()
         dests = {a.dest for a in parser._actions if a.dest != "help"}
         expected = {"field_a", "field_b", "field_c", "field_d", "field_e"}
         self.assertEqual(dests, expected)
@@ -207,7 +207,7 @@ class TestArgparserMultipleFields(unittest.TestCase):
             int_field: int = 0
             float_field: float = 0.0
 
-        parser = TypedFields.to_argparser()
+        parser = TypedFields.get_argparser()
         for action in parser._actions:
             if action.dest != "help":
                 self.assertEqual(action.type, str)
@@ -219,7 +219,7 @@ class TestArgparserOptionalFields(unittest.TestCase):
             optional_field: tp.Optional[str] = None
             required_field: str = "required"
 
-        parser = OptionalConfig.to_argparser()
+        parser = OptionalConfig.get_argparser()
         opt_action = next(a for a in parser._actions if a.dest == "optional_field")
         self.assertEqual(opt_action.default, None)
         self.assertFalse(opt_action.required)
@@ -228,7 +228,7 @@ class TestArgparserOptionalFields(unittest.TestCase):
         class OptionalDefault(ConfStack):
             opt_with_default: tp.Optional[str] = "has_default"
 
-        parser = OptionalDefault.to_argparser()
+        parser = OptionalDefault.get_argparser()
         action = next(a for a in parser._actions if a.dest == "opt_with_default")
         self.assertEqual(action.default, None)
 
@@ -238,7 +238,7 @@ class TestArgparserParseEmpty(unittest.TestCase):
         class SimpleConfig(ConfStack):
             setting: str = "default"
 
-        parser = SimpleConfig.to_argparser()
+        parser = SimpleConfig.get_argparser()
         args = parser.parse_args([])
         self.assertIsNone(vars(args)["setting"])
 
@@ -248,7 +248,7 @@ class TestArgparserParseEmpty(unittest.TestCase):
             setting_b: str = "b"
             setting_c: str = "c"
 
-        parser = MultiConfig.to_argparser()
+        parser = MultiConfig.get_argparser()
         args = parser.parse_args(["--setting_b", "override"])
         self.assertIsNone(vars(args)["setting_a"])
         self.assertEqual(vars(args)["setting_b"], "override")
@@ -260,7 +260,7 @@ class TestArgparserSpecialCharacters(unittest.TestCase):
         class SpaceConfig(ConfStack):
             path: str = "/default/path"
 
-        parser = SpaceConfig.to_argparser()
+        parser = SpaceConfig.get_argparser()
         args = parser.parse_args(["--path", "/path/with spaces/in it"])
         self.assertEqual(vars(args)["path"], "/path/with spaces/in it")
 
@@ -268,7 +268,7 @@ class TestArgparserSpecialCharacters(unittest.TestCase):
         class SpecialConfig(ConfStack):
             url: str = "http://example.com"
 
-        parser = SpecialConfig.to_argparser()
+        parser = SpecialConfig.get_argparser()
         args = parser.parse_args(["--url", "http://example.com?foo=bar&baz=qux"])
         self.assertEqual(vars(args)["url"], "http://example.com?foo=bar&baz=qux")
 
@@ -276,7 +276,7 @@ class TestArgparserSpecialCharacters(unittest.TestCase):
         class EmptyConfig(ConfStack):
             value: str = "default"
 
-        parser = EmptyConfig.to_argparser()
+        parser = EmptyConfig.get_argparser()
         args = parser.parse_args(["--value", ""])
         self.assertEqual(vars(args)["value"], "")
 
@@ -321,7 +321,7 @@ class TestArgparserHelpText(unittest.TestCase):
         class SimpleHelp(ConfStack):
             my_setting: str = "value"
 
-        parser = SimpleHelp.to_argparser()
+        parser = SimpleHelp.get_argparser()
         action = next(a for a in parser._actions if a.dest == "my_setting")
         self.assertEqual(action.help, "Set my_setting")
 
@@ -332,7 +332,7 @@ class TestArgparserHelpText(unittest.TestCase):
         class NestedHelp(ConfStack):
             inner: Inner = pdt.Field(default_factory=Inner)
 
-        parser = NestedHelp.to_argparser()
+        parser = NestedHelp.get_argparser()
         action = next(a for a in parser._actions if a.dest == "inner__nested_setting")
         self.assertEqual(action.help, "Set inner.nested_setting")
 
@@ -342,7 +342,7 @@ class TestArgparserIntegrationWithLoadConfig(unittest.TestCase):
         class IntegrationConfig(ConfStack):
             setting: str = "default"
 
-        parser = IntegrationConfig.to_argparser()
+        parser = IntegrationConfig.get_argparser()
         args = parser.parse_args(["--setting", "cli_value"])
         args_dict = {
             k.replace("__", "."): v for k, v in vars(args).items() if v is not None
@@ -357,7 +357,7 @@ class TestArgparserIntegrationWithLoadConfig(unittest.TestCase):
         class NestedIntegration(ConfStack):
             nested: Nested = pdt.Field(default_factory=Nested)
 
-        parser = NestedIntegration.to_argparser()
+        parser = NestedIntegration.get_argparser()
         args = parser.parse_args(["--nested__value", "cli_nested"])
         args_dict = {}
         for k, v in vars(args).items():
@@ -374,7 +374,7 @@ class TestArgparserNumericTypes(unittest.TestCase):
             count: int = 10
             rate: float = 0.5
 
-        parser = NumericConfig.to_argparser()
+        parser = NumericConfig.get_argparser()
         args = parser.parse_args(["--count", "42", "--rate", "3.14"])
         self.assertEqual(vars(args)["count"], "42")
         self.assertEqual(vars(args)["rate"], "3.14")
@@ -385,7 +385,7 @@ class TestArgparserListAndComplexTypes(unittest.TestCase):
         class ListConfig(ConfStack):
             items: tp.List[str] = pdt.Field(default_factory=list)
 
-        parser = ListConfig.to_argparser()
+        parser = ListConfig.get_argparser()
         dests = {a.dest for a in parser._actions if a.dest != "help"}
         self.assertIn("items", dests)
 
@@ -398,7 +398,7 @@ class TestArgparserInheritance(unittest.TestCase):
         class DerivedConfig(BaseConfig):
             derived_field: str = "derived"
 
-        parser = DerivedConfig.to_argparser()
+        parser = DerivedConfig.get_argparser()
         dests = {a.dest for a in parser._actions if a.dest != "help"}
         self.assertEqual(dests, {"base_field", "derived_field"})
 
@@ -409,6 +409,6 @@ class TestArgparserInheritance(unittest.TestCase):
         class DerivedConfig(BaseConfig):
             field: str = "derived_default"
 
-        parser = DerivedConfig.to_argparser()
+        parser = DerivedConfig.get_argparser()
         action = next(a for a in parser._actions if a.dest == "field")
         self.assertEqual(action.option_strings, ["--field"])
